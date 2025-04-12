@@ -1,0 +1,14 @@
+############################### sending files from local PC to server using scp ###############################
+
+# from my local Windows terminal 
+PS C:\Users\samar> scp -P 2879 "C:/Users/Samar/OneDrive/Escritorio/metagenomas_1.tsv" samaria@leviatan.inmegen.gob.mx:/home/samaria/anaconda3/metadata/
+
+############################### sending files from server to local PC using scp ###############################
+
+# from my local Windows terminal, positioned in the directory I want to the file be saved
+PS C:\Users\samar\OneDrive\Escritorio\visualizacion_QIIME2> scp -P 2879 samaria@leviatan.inmegen.gob.mx:/home/samaria/amplicon_sequences/SRR12689029/demux.qzv .
+
+############################### adding colors to the server's terminal prompt ###############################
+
+export PS1='\[\e[1;36m\]\u@\h\[\e[0m\]:\[\e[1;35m\]\w\[\e[0m\]\$ '
+alias ls='ls --color=auto'
