@@ -1,3 +1,4 @@
-# QIIME2
-Run QIIME2 in server
+# Masters tesis
+
+Code used in this proyect 
 
