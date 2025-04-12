@@ -1,0 +1,28 @@
+# Metagenomes in QIIME2 
+1 Install sratoolkit 
+
+1. from server terminal: 
+wget sratoolkit.current-ubuntu64.tar.gz
+
+2. Decompress file:
+tar -xvzf sratoolkit.current-ubuntu64.tar.gz
+
+3. Once the file is decompress:
+(qiime2-metagenome-2024.10) samaria@leviatan:~/anaconda3$ export PATH="$HOME/anaconda3/sratoolkit.3.2.1-ubuntu64/bin:$PATH"
+(qiime2-metagenome-2024.10) samaria@leviatan:~/anaconda3$ fastq-dump --version
+
+In my case I get this version, wich confirms, fastq-dump is installed 
+fastq-dump : 3.2.1
+***** make directory ***
+mkdir secuencias
+
+***** get sequences ****
+prefetch SRR12802543
+
+/home/samaria/anaconda3/sratoolkit.3.2.1-ubuntu64/bin/fastq-dump --split-3 --outdir ~/anaconda3/secuencias /home/samaria/anaconda3/secuencias/SRR12802543/SRR12802543.sra
+
+con esto se me descargaron los archivos 
+_1 y _2 
+
+
+****************************************
