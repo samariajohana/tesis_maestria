@@ -1,0 +1,54 @@
+######################## process amplicon data with qiime2 ######################## 
+
+# once the fastq docs are downloaded, the next setp is to use qiime2
+# import sequences 
+
+qiime tools import \
+  --type 'SampleData[SequencesWithQuality]' \
+  --input-path /home/samaria/amplicon_sequences/SRR12689029 \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path demux.qza
+
+qiime demux summarize \
+  --i-data demux.qza \
+  --o-visualization demux.qzv
+
+# import metadata
+qiime metadata tabulate \
+  --m-input-file /home/samaria/metadata/metadata_1.1.tsv \
+  --o-visualization metadata_1.1.qzv
+
+######################## DENOISING ######################## 
+
+qiime dada2 denoise-single \
+  --i-demultiplexed-seqs demux.qza \
+  --p-trunc-len 220 \
+  --o-table table.qza \
+  --o-representative-sequences rep-seqs.qza \
+  --o-denoising-stats stats.qza
+
+qiime metadata tabulate \
+  --m-input-file stats.qza \
+  --o-visualization stats.qzv
+  
+qiime feature-table summarize \
+  --i-table table.qza \
+  --m-sample-metadata-file /home/samaria/metadata/metadata_1.1.tsv \
+  --o-visualization table.qzv
+
+qiime feature-table tabulate-seqs \
+  --i-data rep-seqs.qza \
+  --o-visualization asv-sequences-0-summ.qzv
+
+######################## taxonomy assignment with greengenes ######################## 
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier /home/samaria/gg-13-8-99-515-806-nb-classifier.qza \
+  --i-reads rep-seqs.qza \
+  --o-classification taxonomy.qza
+  
+qiime metadata tabulate \
+  --m-input-file taxonomy.qza  \
+  --o-visualization taxonomy.qzv
+
+######################## ######################## 
