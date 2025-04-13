@@ -1,4 +1,4 @@
-===== this code was executed on the Linux server termianl =====
+===== this commands were executed on a Linux server termianl =====
 
 ================================== install conda ==================================
 
@@ -9,7 +9,7 @@ source ~/.bashrc
 
 ================================== create enviroment ==================================
 
-# once we installed conda, the next step is to create an enviroment, in my case, I selected the amplicon enviroment. For other systems you can check on the oficial QIIME2 webpage:
+# once we installed conda, the next step is to create an enviroment, in this case we used amplicon enviroment. For other systems refer to the oficial QIIME2 webpage:
 https://docs.qiime2.org/2024.10/install/native/#activate-the-conda-environment
 
 # now, on the server's terminal, execute:
