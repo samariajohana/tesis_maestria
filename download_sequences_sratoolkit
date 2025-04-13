@@ -1,29 +1,29 @@
-### this code was executed on the Linux server termianl ###
+===== this code was executed on the Linux server termianl =====
 
-#################################### the first setp is to install conda ####################################
+================================== install conda ==================================
 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh 
 chmod +x Miniconda3-latest-Linux-x86_64.sh 
 ~/miniconda3/bin/conda init
 source ~/.bashrc
 
-#################################### create enviroment ####################################
+================================== create enviroment ==================================
 
-# once we installed conda, the next step is to create an enviroment, in my case a selected the amplicon enviroment. For other systems you can check on the oficial QIIME2 webpage:
+# once we installed conda, the next step is to create an enviroment, in my case, I selected the amplicon enviroment. For other systems you can check on the oficial QIIME2 webpage:
 https://docs.qiime2.org/2024.10/install/native/#activate-the-conda-environment
 
 # now, on the server's terminal, execute:
 
 conda env create -n qiime2-amplicon-2024.10 --file https://data.qiime2.org/distro/amplicon/qiime2-amplicon-2024.10-py310-linux-conda.yml
-# note: be careful to install amplicon enviroment. For example, metagenome enviroment doesn't have all the plugins requiered to process amplicon analysis. 
+# note: be careful when selecting the apropiated enviroment. For example, metagenome enviroment doesn't have all the plugins requiered for processing amplicon sequences.
 
 # activate base conda enviroment 
-conda activate qiime2-amplicon-2024.10
+source ~/anaconda3/bin/activate
 
 # activate amplicon enviroment
 conda activate qiime2-amplicon-2024.10
 
-#################################### install sratoolkit ####################################
+================================== install sratoolkit ==================================
 
 https://github.com/ncbi/sra-tools/wiki/02.-Installing-SRA-Toolkit
 
@@ -36,7 +36,7 @@ tar -vxzf sratoolkit.tar.gz
 # corroborate it's been installed
 fastq-dump --stdout -X 2 SRR390728
 
-# this must product this output
+# this must show this exact output
 
 Read 2 spots for SRR390728
 Written 2 spots for SRR390728
@@ -50,7 +50,7 @@ AAGTAGGTCTCGTCTGTGTTTTCTACGAGCTTGTGTTCCAGCTGACCCACTCCCTGGGTGGGGGGACTGGGT
 ;;;;;;;;;;;;;;;;;4;;;;3;393.1+4&&5&&;;;;;;;;;;;;;;;;;;;;;<9;<;;;;;464262
 
 
-#################################### downloading files ####################################
+================================== downloading files ==================================
 
 # this will download a .sra file 
 prefetch SRR12689029
@@ -58,7 +58,7 @@ prefetch SRR12689029
 # convert into a fastq doc. This will generate two files if is paird end ( _1 forward read and _2 reverse read) or a single .fastq doc if is single end 
 fasterq-dump --split-3 SRR12689029.sra
 
-#################################### CASAVA formatting ####################################
+================================== CASAVA formatting ==================================
 
 # if you need to rename the files to get a CASAVA format
 for prefix in SRR12802543 SRR12802544; do
@@ -66,9 +66,35 @@ for prefix in SRR12802543 SRR12802544; do
     mv "${prefix}_2.fastq" "${prefix}_111_L001_R2_001.fastq"
 done
 
-#################################### zip files ####################################
+================================== zip files ==================================
 
 gzip *.fastq
 
 # remove .sra files
 rm *.sra
+
+================================== multiple SRR files ==================================
+
+# when dealing with multiple SRR files we need to create a .txt file with all the SRR 
+prefetch --option-file srr_list.txt
+
+# extract from the directories the .sra files to convert into .fastq files
+find . -type f -name "*.sra" -exec mv {} . \;
+
+# delete empy directories 
+find . -type d -empty -delete
+
+# convert into .fastq files (this will save the files into a directorie named fastq_output, but this in not necessary, we can just delete later the .sra files
+fasterq-dump *.sra -O fastq_output/ --split-files
+
+# CASAVA 1.8 format
+for file in *.fastq; do
+    prefix="${file%%.fastq}"
+    mv "$file" "${prefix}_S111_L001_R1_001.fastq"
+done
+
+# zip files
+gzip *.fastq
+
+
+
