@@ -1,0 +1,35 @@
+################## training SILVA classifier ######################
+
+# SILVA reference file were download from https://docs.qiime2.org/2024.10/data-resources/#taxonomy-classifiers-for-use-with-q2-feature-classifier 
+# SILVA full-lenght sequences and Silva full-lenght taxonomy
+
+# primers used in this study: 343F (CCTACGGGNGGCWGCAG) and 789R (GACTACHVGGGTATCTAATCC) targeting V3-V4 regions. 
+
+# extract primer-specific regions 
+ qiime feature-classifier extract-reads \
+  --i-sequences silva-138-99-seqs.qza \
+  --p-f-primer CCTACGGGNGGCWGCAG \
+  --p-r-primer GACTACHVGGGTATCTAATCC \
+  --p-trunc-len 0 \
+  --o-reads silva-138-343F-798R.qza
+
+# naive bayes classifier training 
+qiime feature-classifier fit-classifier-naive-bayes \
+  --i-reference-reads silva-138-343F-798R.qza \
+  --i-reference-taxonomy silva-138-99-tax.qza \
+  --o-classifier silva-138-343F-798R-classifier.qza
+
+# this were the most time-consuming commands 
+
+################## ASVs for taxnomy assignment ######################
+
+# assign taxonomy to ASVs using trained SILVA classifier
+qiime feature-classifier classify-sklearn \
+  --i-classifier silva-138-343F-798R-classifier.qza \
+  --i-reads rep-seqs.qza \
+  --o-classification taxonomy.qza
+
+# visualization of taxonomy assignments
+qiime metadata tabulate \
+  --m-input-file taxonomy.qza \
+  --o-visualization taxonomy.qzv
