@@ -65,3 +65,18 @@ qiime metadata tabulate \
 zgrep -c "TACGGRAGGCAGCAG" *.fastq.gz
 
 # this command searches the forward primer sequence in each fastq.gz
+
+
+========================== taxa bar plots ==============================
+
+qiime taxa barplot \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --m-metadata-file /home/samaria/metadata/metadata_1.2.tsv \
+  --o-visualization taxa-bar-plots.qzv
+qiime taxa barplot \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --m-metadata-file /home/samaria/metadata/metadata_1.2.tsv \
+  --o-visualization taxa-bar-plots.qzv
+
