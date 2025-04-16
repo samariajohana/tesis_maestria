@@ -1,54 +1,67 @@
 ######################## process amplicon data with qiime2 ######################## 
 
-# once the fastq docs are downloaded, the next setp is to use qiime2
+# once the sequences files are downloaded, the next step is to use qiime2
 # import sequences 
 
 qiime tools import \
-  --type 'SampleData[SequencesWithQuality]' \
-  --input-path /home/samaria/amplicon_sequences/SRR12689029 \
-  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
-  --output-path demux.qza
+  --type 'SampleData[SequencesWithQuality]' \    # type of data (sequences with quality)
+  --input-path /home/samaria/amplicon_sequences/SRR12689029 \   
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \   # Casava 1.8 format
+  --output-path demux.qza   # generates a compressed .qza file
 
+# summarize the demultiplexed data for visualization
 qiime demux summarize \
   --i-data demux.qza \
-  --o-visualization demux.qzv
+  --o-visualization demux.qzv  # generates a .qzv format for visualization
 
 # import metadata
 qiime metadata tabulate \
   --m-input-file /home/samaria/metadata/metadata_1.1.tsv \
-  --o-visualization metadata_1.1.qzv
+  --o-visualization metadata_1.1.qzv  # converts metadata into a .qzv visualization file
 
 ######################## DENOISING ######################## 
 
+# clean sequences and generate ASVs
+# since these sequences do not contain primers, trimming the beginning was unnecesaary 
+
 qiime dada2 denoise-single \
   --i-demultiplexed-seqs demux.qza \
-  --p-trunc-len 220 \
-  --o-table table.qza \
-  --o-representative-sequences rep-seqs.qza \
-  --o-denoising-stats stats.qza
+  --p-trunc-len 220 \   # truncate sequences at 220 nts (based on quality drop visualized later)
+  --o-table table.qza \   # generate an ASV frequency table per sample 
+  --o-representative-sequences rep-seqs.qza \   # repesentative sequences for each ASV
+  --o-denoising-stats stats.qza   # statistics from denoising process
 
 qiime metadata tabulate \
   --m-input-file stats.qza \
-  --o-visualization stats.qzv
+  --o-visualization stats.qzv   # visualize denoising statistics in .qzv format
   
 qiime feature-table summarize \
   --i-table table.qza \
   --m-sample-metadata-file /home/samaria/metadata/metadata_1.1.tsv \
-  --o-visualization table.qzv
+  --o-visualization table.qzv   # suummarizes reads pers ample, etc. 
 
 qiime feature-table tabulate-seqs \
   --i-data rep-seqs.qza \
-  --o-visualization asv-sequences-0-summ.qzv
+  --o-visualization asv-sequences-0-summ.qzv   # displays representative sequences per ASV
 
 ######################## taxonomy assignment with greengenes ######################## 
 
 qiime feature-classifier classify-sklearn \
   --i-classifier /home/samaria/gg-13-8-99-515-806-nb-classifier.qza \
-  --i-reads rep-seqs.qza \
+  --i-reads rep-seqs.qza \   # ASV table 
   --o-classification taxonomy.qza
-  
+
+#  optional: adjust confindence treshold (default: 70%) using --p-confidence  
+
 qiime metadata tabulate \
   --m-input-file taxonomy.qza  \
-  --o-visualization taxonomy.qzv
+  --o-visualization taxonomy.qzv   # taxonomy asignation per ASV 
 
-######################## ######################## 
+============================= primers =============================
+
+# verify if sequences contain primers 
+# primers used in this study: 343F and 798R
+
+zgrep -c "TACGGRAGGCAGCAG" *.fastq.gz
+
+# this command searches the forward primer sequence in each fastq.gz
