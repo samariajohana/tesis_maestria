@@ -80,3 +80,26 @@ qiime taxa barplot \
   --m-metadata-file /home/samaria/metadata/metadata_1.2.tsv \
   --o-visualization taxa-bar-plots.qzv
 
+
+========================== relative abundances table at genus level ================================
+
+qiime taxa collapse \
+  --i-table table.qza \
+  --i-taxonomy taxonomy.qza \
+  --p-level 6 \
+  --o-collapsed-table table-genus.qza
+
+#convertir en abundancias relativas
+qiime feature-table relative-frequency \
+  --i-table table-genus.qza \
+  --o-relative-frequency-table table-genus-relative.qza
+
+qiime tools export \
+  --input-path table-genus-relative.qza \
+  --output-path exported-genus-table
+
+biom convert \
+  -i feature-table.biom \
+  -o genus-relative-table.tsv \
+  --to-tsv
+
