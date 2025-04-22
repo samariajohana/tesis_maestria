@@ -1,0 +1,18 @@
+============================== Instalation Kraken2 ==============================
+
+# using conda 
+conda install bioconda::kraken2
+
+# verify intalation 
+kraken2 --version 
+
+============================== create enviroment ==============================
+# with kraken2 and SRAtoolkit
+conda create -n kraken_env -c bioconda -c conda-forge -c defaults kraken2 sra-tools
+
+#activate enviroment
+conda activate kraken_env
+
+============================== ==============================
+
+============================== ==============================
