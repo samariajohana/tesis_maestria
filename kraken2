@@ -21,3 +21,6 @@ wget https://genome-idx.s3.amazonaws.com/kraken/minikraken2_v2_8GB_201904.tgz
 tar -xvzf minikraken2_v2_8GB_201904.tgz
 
 ============================== download sequences ==============================
+# download SRR sequences using SRAToolkit
+
+prefetch --option-file secuencias_mg_1.txt
