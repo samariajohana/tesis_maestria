@@ -13,6 +13,11 @@ conda create -n kraken_env -c bioconda -c conda-forge -c defaults kraken2 sra-to
 #activate enviroment
 conda activate kraken_env
 
-============================== ==============================
+============================== download mini kraken database ==============================
+# this version is smaller, 8GB 
+wget https://genome-idx.s3.amazonaws.com/kraken/minikraken2_v2_8GB_201904.tgz
 
-============================== ==============================
+# unzip .tgz file
+tar -xvzf minikraken2_v2_8GB_201904.tgz
+
+============================== download sequences ==============================
