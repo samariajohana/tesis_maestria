@@ -22,5 +22,20 @@ tar -xvzf minikraken2_v2_8GB_201904.tgz
 
 ============================== download sequences ==============================
 # download SRR sequences using SRAToolkit
-
 prefetch --option-file secuencias_mg_1.txt
+
+#convert to fastq files
+fasterq-dump *.sra -O fastq_output_mg1/ --split-files
+
+#zip files 
+
+kraken2 --db /home/samaria/metagenomas_sequences/kraken2_db/minikraken2_v2_8GB_201904_UPDATE \
+  --paired \
+  --gzip-compressed \
+  --report /home/samaria/metagenomas_sequences/kraken_reports1/SRR12802543_report.txt \
+  --output /home/samaria/metagenomas_sequences/kraken_output1/SRR12802543_kraken.txt \
+  /home/samaria/metagenomas_sequences/fastq_output_mg1/SRR12802543_1.fastq.gz \
+  /home/samaria/metagenomas_sequences/fastq_output_mg1/SRR12802543_2.fastq.gz
+
+
+
