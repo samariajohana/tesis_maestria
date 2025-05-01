@@ -33,6 +33,15 @@ wget --output-document sratoolkit.tar.gz https://ftp-trace.ncbi.nlm.nih.gov/sra/
 # extract the file 
 tar -vxzf sratoolkit.tar.gz
 
+# append the PATH
+export PATH=$PWD/sratoolkit.3.2.1-ubuntu64/bin:$PATH
+
+#
+which fastq-dump
+
+# must show something like this
+/home/samaria/sratoolkit.3.2.1-ubuntu64/bin/fastq-dump
+
 # corroborate it's been installed
 fastq-dump --stdout -X 2 SRR390728
 
