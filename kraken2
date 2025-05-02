@@ -41,7 +41,7 @@ kraken2 --db /home/samaria/metagenomas_sequences/kraken2_db/minikraken2_v2_8GB_2
 kraken2 --db /home/samaria/mini_kraken_database/minikraken2_v2_8GB_201904_UPDATE \
   --paired \
   --gzip-compressed \
-  --report /home/samaria/metagenomas_sequences/kraken_reports1/SRR12802546_report.txt \
-  --output /home/samaria/metagenomas_sequences/kraken_output1/SRR12802546_kraken.txt \
+  --report /home/samaria/mtg_sequences/kraken_reports1/SRR12802546_report.txt \
+  --output /home/samaria/mtg_sequences/kraken_output1/SRR12802546_kraken.txt \
   /home/samaria/mtg_sequences/fastq_output/SRR12802546_1.fastq.gz \
   /home/samaria/mtg_sequences/fastq_output/SRR12802546_2.fastq.gz
