@@ -1,0 +1,12 @@
+######### install bracken ########
+
+# make sure to instaLL Kraken2 before installing bracken
+git clone https://github.com/jenniferlu717/Bracken.git
+cd Bracken
+bash install_bracken.sh
+
+# add to PATH, from Bracken directory 
+ln -s $(pwd)/bracken ~/miniconda3/envs/kraken_env/bin/bracken
+ln -s $(pwd)/bracken-build ~/miniconda3/envs/kraken_env/bin/bracken-build
+
+###### #####
