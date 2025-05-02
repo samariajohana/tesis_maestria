@@ -27,17 +27,10 @@ prefetch --option-file secuencias_mg_1.txt
 #convert to fastq files
 fasterq-dump *.sra -O fastq_output_mg1/ --split-files
 
-#zip files 
+# zip files 
+gzip *.fastq
 
-kraken2 --db /home/samaria/metagenomas_sequences/kraken2_db/minikraken2_v2_8GB_201904_UPDATE \
-  --paired \
-  --gzip-compressed \
-  --report /home/samaria/metagenomas_sequences/kraken_reports1/SRR12802543_report.txt \
-  --output /home/samaria/metagenomas_sequences/kraken_output1/SRR12802543_kraken.txt \
-  /home/samaria/metagenomas_sequences/fastq_output_mg1/SRR12802543_1.fastq.gz \
-  /home/samaria/metagenomas_sequences/fastq_output_mg1/SRR12802543_2.fastq.gz
-
-
+# run kraken2
 kraken2 --db /home/samaria/mini_kraken_database/minikraken2_v2_8GB_201904_UPDATE \
   --paired \
   --gzip-compressed \
@@ -45,3 +38,39 @@ kraken2 --db /home/samaria/mini_kraken_database/minikraken2_v2_8GB_201904_UPDATE
   --output /home/samaria/mtg_sequences/kraken_output1/SRR12802546_kraken.txt \
   /home/samaria/mtg_sequences/fastq_output/SRR12802546_1.fastq.gz \
   /home/samaria/mtg_sequences/fastq_output/SRR12802546_2.fastq.gz
+
+====================== script to run kraken2 ===============================
+
+# this script assumes you downloaded the SRR files. 
+# first, it extracts thi .sra files and deletes empy folders 
+# then, it splits the files in _1 and _2
+# converts it in fastq files 
+# zips the fastq files 
+# runs kranken2 and generates the output files 
+
+#!/bin/bash
+
+find . -type f -name "*.sra" -exec mv {} . \;
+find . -type d -empty -delete
+
+mkdir -p fastq_output
+fasterq-dump *.sra -O fastq_output/ --split-files
+gzip fastq_output/*.fastq
+
+DB="/home/samaria/mini_kraken_database/minikraken2_v2_8GB_201904_UPDATE"
+IN_DIR="/home/samaria/mtg_sequences/fastq_output"
+OUT_DIR="/home/samaria/mtg_sequences/kraken_output1"
+REPORT_DIR="/home/samaria/mtg_sequences/kraken_reports1"
+
+mkdir -p "$OUT_DIR" "$REPORT_DIR"
+
+SAMPLES=(SRR12802548 SRR12802549 SRR12802550 SRR12802551 SRR12802552 SRR12802553 SRR12802554 SRR12802555 SRR12802556 SRR12802557 SRR12802558 SRR12802559 SR>
+for SAMPLE in "${SAMPLES[@]}"
+do
+  kraken2 --db "$DB" \
+    --paired \
+    --gzip-compressed \
+    --report "$REPORT_DIR/${SAMPLE}_report.txt" \
+    --output "$OUT_DIR/${SAMPLE}_kraken.txt" \
+    "$IN_DIR/${SAMPLE}_1.fastq.gz" "$IN_DIR/${SAMPLE}_2.fastq.gz"
+done
