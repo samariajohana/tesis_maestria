@@ -105,5 +105,44 @@ done
 # zip files
 gzip *.fastq
 
+############ Script to run kraken2 ###################
 
+nano run_kraken2.sh
 
+#!/bin/bash
+
+find . -type f -name "*.sra" -exec mv {} . \;
+find . -type d -empty -delete
+
+mkdir -p fastq_output
+fasterq-dump *.sra -O fastq_output/ --split-files
+gzip fastq_output/*.fastq
+
+DB="/home/samaria/mini_kraken_database/minikraken2_v2_8GB_201904_UPDATE"
+IN_DIR="/home/samaria/mtg_sequences/fastq_output"
+OUT_DIR="/home/samaria/mtg_sequences/kraken_output1"
+REPORT_DIR="/home/samaria/mtg_sequences/kraken_reports1"
+
+mkdir -p "$OUT_DIR" "$REPORT_DIR"
+
+SAMPLES=(SRR12802548 SRR12802549 SRR12802550 SRR12802551 SRR12802552 SRR12802553 SRR12802554 SRR12802555 SRR12802556 SRR12802557 SRR12802558 SRR12802559 SRR12802560 SRR12802561 SRR12802562 SRR12802563 SRR12802564 SRR12802565 SRR12802566 SRR12802567)
+
+for SAMPLE in "${SAMPLES[@]}"
+do
+  kraken2 --db "$DB" \
+    --paired \
+    --gzip-compressed \
+    --report "$REPORT_DIR/${SAMPLE}_report.txt" \
+    --output "$OUT_DIR/${SAMPLE}_kraken.txt" \
+    "$IN_DIR/${SAMPLE}_1.fastq.gz" "$IN_DIR/${SAMPLE}_2.fastq.gz"
+done
+
+# save the script
+Ctrl + O 
+
+# close the file
+# Ctrl + X 
+
+# run the script
+chmod +x run_kraken2.sh
+./run_kraken2.sh
