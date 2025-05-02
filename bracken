@@ -9,4 +9,76 @@ bash install_bracken.sh
 ln -s $(pwd)/bracken ~/miniconda3/envs/kraken_env/bin/bracken
 ln -s $(pwd)/bracken-build ~/miniconda3/envs/kraken_env/bin/bracken-build
 
+###### Calculate mean lenght of all the samples #####
+
+# this will show us the mean lenght of all the samples, to assignt the -l value to biult the kraken2 + bracken database
+
+nano mean_lenght
+
+#!/bin/bash
+
+echo -e "Sample\tRead1_mean_len\tRead2_mean_len" > longitudes_promedio.tsv
+
+for r1 in *_R1.fastq.gz; do
+    sample=$(basename "$r1" _R1.fastq.gz)
+    r2="${sample}_R2.fastq.gz"
+
+    len_r1=$(zcat "$r1" | awk 'NR % 4 == 2 && NR <= 40000 { total += length($0); count++ } END { print total / count }')
+    len_r2=$(zcat "$r2" | awk 'NR % 4 == 2 && NR <= 40000 { total += length($0); count++ } END { print total / count }')
+
+    echo -e "$sample\t$len_r1\t$len_r2" >> longitudes_promedio.tsv
+done
+
+################ crear base de datos de bacterias compatible con bracken ######################
+
+# crear directiorio para la base de datos 
+mkdir kraken2_database
+cd kraken2_database
+
+# descargar taxonomía de NCBI
+kraken2-build --download-taxonomy --db .
+
+# como solo me interesa asignar taxonomía a bacterias, solo descargaré genomas bacterianos
+kraken2-biuld --download-library bacteria --db .
+
+# construir la base de datos para kraken2
+# aquí podemos modificar el parámetro --threads según el número de núcleos que se desee utilizar
+# la documentación nos recomiendautilizar por lo menos 10-20 threads 
+
+kraken2-biuld --build --db . --threads 20 
+
+# generate bracken database file 
+bracken-biuld -d . -t 20 -l 150
+
+# después de construir esta database podemos liberar espacio 
+kraken2-build --clean --db . 
+
+# utilizar kraken con esta base de datos
+kraken2 --db /ruta/a/kraken2_bacteria_db --threads 20 --report sample.report.txt --output sample.kraken sample.fastq.gz
+
+# utilizar bracken 
+bracken -d /ruta/a/kraken2_bacteria_db -i sample.report.txt -o sample.bracken.species.txt -r 150 -l S
+
+####### utilizar pigz al comprimir los fastq ########
+
+# instalar pigz para comprimir los fastq más rápido al utilizar más núcleos
+wget https://zlib.net/pigz/pigz-2.8.tar.gz
+tar -xvzf pigz-2.8.tar.gz
+cd pigz-2.8
+
+# compilarlo localmente
+make
+
+# copiar el ejecutable a la carpeta bin
+cp pigz $HOME/bin/
+
+# añadir al PATH temporalmente
+export PATH="$HOME/bin:$PATH"
+
+# si quieres hacerlo permanente
+source ~/.bashrc
+
+###### install architeuthis #####
+conda install -c bioconda architeuthis
+
 ###### #####
