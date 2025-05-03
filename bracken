@@ -39,16 +39,16 @@ cd kraken2_database
 kraken2-build --download-taxonomy --db .
 
 # como solo me interesa asignar taxonomía a bacterias, solo descargaré genomas bacterianos
-kraken2-biuld --download-library bacteria --db .
+kraken2-build --download-library bacteria --db .
 
 # construir la base de datos para kraken2
 # aquí podemos modificar el parámetro --threads según el número de núcleos que se desee utilizar
 # la documentación nos recomiendautilizar por lo menos 10-20 threads 
 
-kraken2-biuld --build --db . --threads 20 
+kraken2-build --build --db . --threads 20 
 
 # generate bracken database file 
-bracken-biuld -d . -t 20 -l 150
+bracken-build -d . -t 20 -l 150
 
 # después de construir esta database podemos liberar espacio 
 kraken2-build --clean --db . 
