@@ -29,6 +29,10 @@ for r1 in *_R1.fastq.gz; do
     echo -e "$sample\t$len_r1\t$len_r2" >> longitudes_promedio.tsv
 done
 
+# the easiest way:
+
+zcat *.fastq.gz | head -n 400000 | awk 'NR%4==2 { total += length($0); count++ } END { print total/count }'
+
 ################ crear base de datos de bacterias compatible con bracken ######################
 
 # crear directiorio para la base de datos 
