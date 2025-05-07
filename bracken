@@ -85,4 +85,9 @@ source ~/.bashrc
 ###### install architeuthis #####
 conda install -c bioconda architeuthis
 
-###### #####
+###### run bracken #####
+bracken -d /home/samaria/kraken2_database \
+  -i /home/samaria/mtg_sequences/kraken_reports1/SRR12802546_report.txt \
+  -o /home/samaria/mtg_sequences/bracken_reports/SRR12802546_bracken.txt \
+  -r 150 \
+  -l S
