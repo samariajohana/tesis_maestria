@@ -91,3 +91,8 @@ bracken -d /home/samaria/kraken2_database \
   -o /home/samaria/mtg_sequences/bracken_reports/SRR12802546_bracken.txt \
   -r 150 \
   -l S
+
+############### architeuthis #################
+
+conda install architeuthis 
+
