@@ -1,1 +1,9 @@
+################ install MelonnPan ################
+
+################ run MelonnPan #################
+
+Rscript train_metabolites.R -i /home/samar/melonnpan/data/mtb_filtered_species_kraken.txt  -g /home/samar/melonnpan/data/relative_abundances_species_kraken.txt -o output_kraken_species/   --verbose TRUE
+
+
+
 
