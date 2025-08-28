@@ -1,53 +1,59 @@
-# this code was used to generate XGBoost models, with relative abundances of bacterial genera as independent variables (X)
-# and individual metabolites ad the dependent variables (y). A separated model was generated for each metabolite. 
+# XGBoost regression modeling for metabolite profiles using relative abundances of bacterial genera as independent variables (X)
+# a separated model were trained for each metabolite, considered as dependent variables (y). 
+
 
 # define X and y 
-X= micro.copy()
-X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True)
 
-# define param_grid for grid search
-param_grid= {
-     'n_estimators': [50, 100, 200],
+X= micro.copy() # create working copy 
+X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # remove special characters if present 
+
+# hyperparameter grid
+# additional parameters were incorporated for individual model tuning
+
+param_grid = {
+    'n_estimators': [50, 100, 200],
     'max_depth': [3, 5, 7],
     'learning_rate': [0.01, 0.1, 0.3],
-    'colsample_bytree': [0.8, 1]
+    'colsample_bytree': [0.8, 1],
+    'min_child_weight': [1, 5, 10]
 }
 
-# define cross validation 
+# define cross validation with 10 folds 
 cv= KFold(n_splits=10, shuffle=True, random_state=42)
-scorer= make_scorer(mean_squared_error, greater_is_better= False)
+scorer= make_scorer(mean_squared_error, greater_is_better= False) # optimization metric
 
-# lista para almacenar resultados 
+# list to store model hyperparameters and performance results
 resultados= [] 
 
-# loop for para iterar en cada metabolito del df mtb2 (normalizados)
-for metabolito in mtb2.columns: 
+# loop for to iterate on each metabolite
+metabolitos= mtb2.columns
+
+for i, metabolito in enumerate(metabolitos):
+    print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}") 
     y= mtb2[metabolito]
     
-    # definimos otra vez el modelo xgb que se generará en cada iteracion del loop
+    # XGBoost model 
     xgb= XGBRegressor(objective='reg:squarederror', random_state=42)
     
-    # definimos el Grid Search 
     grid_search= GridSearchCV(estimator= xgb,
                               param_grid=param_grid,
                               scoring=scorer, 
                               cv=cv,
                               verbose=0,
                               n_jobs=-1)
-    grid_search.fit(X,y)
+    grid_search.fit(X,y) # fit the model
 
-    # hacemos predicciones 
-    y_pred= grid_search.best_estimator_.predict(X)
-    # evaluamos el modelo 
-    mse= mean_squared_error(y, y_pred)
-    r2= r2_score(y, y_pred)
+    r2_scores = cross_val_score(
+        grid_search.best_estimator_,
+        X, y, 
+        cv=cv, scoring='r2')
 
-    # almacenamos resultados para poder crear df 
+    # store results in resultados list
     resultados.append({
         'metabolito': metabolito,
         'mejores_hiperparametros': grid_search.best_params_,
         'MSE': mse,
         'R2': r2
     })
-# converimos a data frame
+
 df_resultados= pd.DataFrame(resultados)
