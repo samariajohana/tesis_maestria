@@ -1,5 +1,7 @@
-# XGBoost regression modeling for metabolite profiles using relative abundances of bacterial genera as independent variables (X)
+'''
+XGBoost regression modeling for metabolite profiles using relative abundances of bacterial genera as independent variables (X)
 # a separated model were trained for each metabolite, considered as dependent variables (y). 
+'''
 
 # load metabolome and microbiota dataframes 
 mtb= pd.read_csv('mtb_set1_normalizado_listo.csv', index_col=0)
