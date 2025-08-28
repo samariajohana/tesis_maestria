@@ -1,10 +1,33 @@
 # XGBoost regression modeling for metabolite profiles using relative abundances of bacterial genera as independent variables (X)
 # a separated model were trained for each metabolite, considered as dependent variables (y). 
 
+# load metabolome and microbiota dataframes 
+mtb= pd.read_csv('mtb_set1_normalizado_listo.csv', index_col=0)
+micro= pd.read_csv('genera_filt_normalizado_listo.csv', index_col=0)
+micro.index.name='ID'
+
+# sort dataframe by ID 
+index_comun= mtb.index.intersection(micro.index)
+mtb=mtb.sort_index()
+micro=micro.sort_index()
+
+# load metadata dataframe 
+metadata= pd.read_csv('metadata_set1_corto.csv')
+metadata= metadata.drop(['Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7'], axis=1)
+metadata_renamed= metadata.rename(columns= {'Sample': 'ID'})
+
+# merge micro dataframe with medatadata 
+micro_merged= micro.merge(metadata_renamed, on='ID')
+micro_merged= micro_merged.drop(['Subject', 'Age', 'T1D_Status'], axis=1)
+micro_merged= micro_merged.set_index('ID')
+
+# use LabelEncoder to transform 'Study.Group' variable to numeric
+encoder= LabelEncoder()
+grupos_codificados= encoder.fit_transform(micro_merged['Study.Group'])
+micro_merged['Study.Group'] = grupos_codificados
 
 # define X and y 
-
-X= micro.copy() # create working copy 
+X= micro_merged.copy() # create working copy 
 X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # remove special characters if present 
 
 # hyperparameter grid
@@ -26,11 +49,11 @@ scorer= make_scorer(mean_squared_error, greater_is_better= False) # optimization
 resultados= [] 
 
 # loop for to iterate on each metabolite
-metabolitos= mtb2.columns
+metabolitos= mtb.columns
 
 for i, metabolito in enumerate(metabolitos):
     print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}") 
-    y= mtb2[metabolito]
+    y= mtb[metabolito]
     
     # XGBoost model 
     xgb= XGBRegressor(objective='reg:squarederror', random_state=42)
