@@ -1,1 +1,79 @@
-''' This code
+''' 
+Random Forest Regression modeling for metabolite profiles using relative abundances of bacterial gut microbiota genera as
+independent variables (X). A separated model was trained for each metabolite, considered as dependent variables (y).
+
+'''
+
+# load genera and metadata dataframes 
+micro= pd.read_csv('genera_filt_normalizado_listo.csv', index_col=0)
+micro.index.name= 'ID'
+
+metadata= pd.read_csv('metadata_set1_corto.csv')
+metadata= metadata.drop(['Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7'], axis=1)
+metadata= metadata.rename(columns= {'Sample': 'ID'})
+
+# merge micro and metadata dataframes by ID, to add 'Study.Group' feature 
+micro_metadata= micro.merge(metadata, on='ID')
+micro_metadata=micro_metadata.drop(['Subject', 'Age', 'T1D_Status'], axis=1)
+micro_metadata=micro_metadata.set_index('ID')
+
+# use LabelEncoder to transform categorical 'Study.Group' feature to numeric 
+encoder= LabelEncoder()
+status_encoded= encoder.fit_transform(micro_metadata['Study.Group'])
+micro_metadata['Sutdy.Group']= status_encoded
+micro_metadata= micro_metadata.drop(['Study.Group'], axis=1)
+
+# load mtb data
+mtb= pd.read_csv('mtb_set1_normalizado_listo.csv', index_col=0)
+
+# sort both dataframes
+index_comun= mtb.index.intersection(micro_metadata.index)
+mtb=mtb.sort_index()
+micro_metadata=micro_metadata.sort_index()
+micro_metadata
+
+# Random Forest Regressor models 
+X = micro_metadata.copy() # working copy
+X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # drop special characters if present
+
+# hyperparameter tuning grid 
+param_grid = {
+    'n_estimators': [20, 50, 100],
+    'max_depth': [3, 5, 7],
+    'max_features': ['sqrt', 'log2', None],  
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+# Cross Validation with 10 folds
+cv= KFold(n_splits=10, shuffle=True, random_state=42)
+
+# list to store models performance metric and hyperparameters for each metabolite
+resultados= [] 
+
+# loop for to iterate on each metabolite (column of mtb dataframe)
+metabolitos= mtb.columns 
+
+for i, metabolito in enumerate(metabolitos):
+    print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
+    y = mtb[metabolito] 
+
+    # RF model
+    RF_model= RandomForestRegressor(random_state=42)
+
+    # Grid Search 
+    grid_search = GridSearchCV(estimator=random_forest_model,
+                           param_grid=param_grid,
+                           scoring='r2',
+                           cv=cv,
+                           verbose=1,
+                           n_jobs=-1)
+    grid_search.fit(X,y) # fit data to model
+
+    # store the best hyperparameters and r2 metric for each model
+    r2_scores= cross_val_score(grid_search.best_estimator_, X, y, cv=cv, scoring='r2')
+    resultados.append({'metabolito': metabolito, 'hiperparams': grid_search.best_params_, 'R2': r2_scores.mean()})
+
+# create df with the results
+modelos_RF= pd.DataFrame(resultados)
+modelos_RF= modelos_RF.sort_values(by='R2', ascending=False)
