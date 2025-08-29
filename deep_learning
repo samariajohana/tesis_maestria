@@ -1,0 +1,10 @@
+''' This repository contains all code used in deep learning projects '''
+
+  # Install tensorflow and scikeras 
+  pip install tensorflow
+  pip install scikeras
+
+
+  
+
+  
