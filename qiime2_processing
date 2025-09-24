@@ -103,3 +103,11 @@ biom convert \
   -o genus-relative-table.tsv \
   --to-tsv
 
+############ qiime2 procesing sequences paired end poyetbio sequences #########
+
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path /home/osbaldo/samaria/amplicon_fastq/fastq_output \
+  --input-format CasavaOneEightSingleLanePerSampleDirFmt \
+  --output-path demux-paired-end.qza
+
