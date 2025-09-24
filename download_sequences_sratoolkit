@@ -105,6 +105,37 @@ done
 # zip files
 gzip *.fastq
 
+######## robust bash script CASSAVA formating ##########
+
+#!/bin/bash
+
+# Contador para muestras
+counter=1
+
+# Procesar cada par de archivos (ahora .fastq.gz)
+for forward_file in *_1.fastq.gz; do
+    prefix="${forward_file%_1.fastq.gz}"
+    reverse_file="${prefix}_2.fastq.gz"
+    
+    # Verificar que existe el archivo reverse
+    if [[ ! -f "$reverse_file" ]]; then
+        echo "ADVERTENCIA: No se encontró el archivo reverse para $prefix"
+        continue
+    fi
+    
+    # Formatear número de muestra (001, 002, ..., 160)
+    sample_num=$(printf "%03d" $counter)
+    
+    # Renombrar archivos (mantener .gz)
+    mv "$forward_file" "${prefix}_S${sample_num}_L001_R1_001.fastq.gz"
+    mv "$reverse_file" "${prefix}_S${sample_num}_L001_R2_001.fastq.gz"
+    
+    echo "Procesado: $prefix → S${sample_num}"
+    ((counter++))
+done
+
+echo "Procesadas $((counter-1)) muestras"
+
 ############ Script to run kraken2 ###################
 
 nano run_kraken2.sh
