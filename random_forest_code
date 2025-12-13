@@ -4,76 +4,210 @@ independent variables (X). A separated model was trained for each metabolite, co
 
 '''
 
-# load genera and metadata dataframes 
-micro= pd.read_csv('genera_filt_normalizado_listo.csv', index_col=0)
-micro.index.name= 'ID'
+# import gut microbiota relative abundances and fecal metabolome data.
+# Covariate correction was performed using sex, age, and T1D status.
+# Covariates were included as additional features in the model.
 
-metadata= pd.read_csv('metadata_set1_corto.csv')
-metadata= metadata.drop(['Unnamed: 5', 'Unnamed: 6', 'Unnamed: 7'], axis=1)
-metadata= metadata.rename(columns= {'Sample': 'ID'})
+genera_2= pd.read_csv('genera_t1d_long_metadata.csv', index_col=0)
+mtb_2= pd.read_csv('mtb_set1_normalizado_listo.csv', index_col=0)
 
-# merge micro and metadata dataframes by ID, to add 'Study.Group' feature 
-micro_metadata= micro.merge(metadata, on='ID')
-micro_metadata=micro_metadata.drop(['Subject', 'Age', 'T1D_Status'], axis=1)
-micro_metadata=micro_metadata.set_index('ID')
+genera_2.index.name= 'ID'
 
-# use LabelEncoder to transform categorical 'Study.Group' feature to numeric 
-encoder= LabelEncoder()
-status_encoded= encoder.fit_transform(micro_metadata['Study.Group'])
-micro_metadata['Sutdy.Group']= status_encoded
-micro_metadata= micro_metadata.drop(['Study.Group'], axis=1)
+# sort both datasets by index
+index_comun= mtb_2.index.intersection(genera_2.index)
+mtb_2=mtb_2.sort_index()
+genera_2=genera_2.sort_index()
 
-# load mtb data
-mtb= pd.read_csv('mtb_set1_normalizado_listo.csv', index_col=0)
+# function to run Random Forest Regression models
+def modelos_RF(micro_df, mtb_df):
+    global modelos_RF_t1d
+    X= micro_df.copy()
+    X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True)
+    print(len(mtb_df))
 
-# sort both dataframes
-index_comun= mtb.index.intersection(micro_metadata.index)
-mtb=mtb.sort_index()
-micro_metadata=micro_metadata.sort_index()
-micro_metadata
-
-# Random Forest Regressor models 
-X = micro_metadata.copy() # working copy
-X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # drop special characters if present
-
-# hyperparameter tuning grid 
-param_grid = {
-    'n_estimators': [20, 50, 100],
-    'max_depth': [3, 5, 7],
-    'max_features': ['sqrt', 'log2', None],  
+    # Grid Search Hyperparms
+    param_grid = {
+    'n_estimators': [100, 250, 500],
+    'max_depth': [None, 5, 10,20],
+    'max_features': ['sqrt', 'log2', 0.2],
     'min_samples_split': [2, 5, 10],
     'min_samples_leaf': [1, 2, 4]
-}
+    }
 
-# Cross Validation with 10 folds
-cv= KFold(n_splits=10, shuffle=True, random_state=42)
+    # 10-fold cross validation 
+    cv= KFold(n_splits=10, shuffle=True, random_state=42)
 
-# list to store models performance metric and hyperparameters for each metabolite
-resultados= [] 
+    # scoring metric
+    scoring = make_scorer(mean_absolute_percentage_error, greater_is_better=False)
 
-# loop for to iterate on each metabolite (column of mtb dataframe)
-metabolitos= mtb.columns 
+    # List to store the reasults
+    resultados= []
+    metabolitos= mtb_df.columns
+    #metabolitos= mtb_df[['Lithocholic acid', 'Deoxycholic acid/Chenodeoxycholic acid']]
+    
+    # iterate over each metabolite
+    for i, metabolito in enumerate(metabolitos): 
+        print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
+        y = mtb_df[metabolito]
+    
+        # RF model
+        RF_model= RandomForestRegressor(random_state=42)
+    
+        grid_search = GridSearchCV(estimator=RF_model,
+                                   param_grid=param_grid,
+                                   scoring=scoring,
+                                   cv=cv,
+                                   verbose=1,
+                                   n_jobs=-1)
+        grid_search.fit(X,y)
+    
+        y_pred = cross_val_predict(grid_search.best_estimator_, X, y, cv=cv, n_jobs=-1)
+        
+        # performance metrics
+        r2_scores= r2_score(y, y_pred)
+        spearman_corr, spearman_pval= spearmanr(y, y_pred)
+        mape= mean_absolute_percentage_error(y, y_pred)
+        mae= mean_absolute_error(y, y_pred)
+        diferencia = (y - y_pred).abs()
+    
+        # store results
+        resultados.append({'metabolito': metabolito, 'hiperparams': grid_search.best_params_, 'R2': r2_scores, 'Spearman':spearman_corr,
+                               'Spearman_pval': spearman_pval, 'mape':mape, 'mae':mae, 'y': y, 'y_pred': y_pred, 'dif':diferencia})
+    
+        modelos_RF_t1d= pd.DataFrame(resultados)
 
-for i, metabolito in enumerate(metabolitos):
-    print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
-    y = mtb[metabolito] 
+# Run models
+modelos_RF(genera_2, mtb_2)
 
-    # RF model
-    RF_model= RandomForestRegressor(random_state=42)
+# after selecting those metabolites with spearman > 0.3, outliers handling and feature selection was applied.
 
-    # Grid Search 
-    grid_search = GridSearchCV(estimator=random_forest_model,
-                           param_grid=param_grid,
-                           scoring='r2',
-                           cv=cv,
-                           verbose=1,
-                           n_jobs=-1)
-    grid_search.fit(X,y) # fit data to model
+mtb_winsor = mtb_2.copy()
+for col in mtb_winsor.columns:
+    mtb_winsor[col] = winsorize(mtb_winsor[col], limits=[0.05, 0.05])
 
-    # store the best hyperparameters and r2 metric for each model
-    r2_scores= cross_val_score(grid_search.best_estimator_, X, y, cv=cv, scoring='r2')
-    resultados.append({'metabolito': metabolito, 'hiperparams': grid_search.best_params_, 'R2': r2_scores.mean()})
+def modelos_RF_imp(micro_df, mtb_df):
+    global modelos_RF_t1d_imp_features
+    global importancias_global
+    X = micro_df.copy()
+    X.columns = X.columns.str.replace(r"[\[\]<>]", "", regex=True)
+    print(len(mtb_df))
 
-# create df with the results
-modelos_RF= pd.DataFrame(resultados)
-modelos_RF= modelos_RF.sort_values(by='R2', ascending=False)
+    # definir parámetros para el Grid Search
+    param_grid = {
+        'n_estimators': [100, 250, 500],
+        'max_depth': [None, 5, 10, 20],
+        'max_features': ['sqrt', 'log2', 0.2],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+
+    # definimos evaluación con CV=10
+    cv = KFold(n_splits=10, shuffle=True, random_state=42)
+    scoring = make_scorer(mean_absolute_percentage_error, greater_is_better=False)
+
+    # crear lista para almacenar resultados
+    resultados = []
+    resultados_importancias_lista = []
+
+    # repetimos modelos solo para los mejores metabolitos obtenidos en el primer escaneo 
+    metabolitos = mtb_2[['Lithocholic acid','Deoxycholic acid/Chenodeoxycholic acid','C14 carnitine','2-hydroxyglutarate','C16 carnitine','lithocholate','C18:1 carnitine',
+     'C18:1-OH carnitine','Glycodeoxycholic acid','C16-OH carnitine','taurine','cytosine','C18:2 carnitine','cis-trans-hydroxyproline','malate','leucine',
+     'phenylalanine','3-methyladipate/pimelate','C22:6 carnitine','sebacate','C18 carnitine','Glycolithocholic acid','isoleucine','Taurolithocholic acid',
+     'methionine','urate','tyrosine','Hyodeoxycholic acid','C14:2 carnitine','1-methylnicotinamide','asparagine','isocitrate','succinate','adipate',
+     'suberate','threonine','inosine','SDMA','Docosapentaenoic acid','kynurenic acid','N-carbamoyl-beta-alanine','C3-DC-CH3 carnitine','tryptophan','indole-3-propionate',
+     'thiamine','Taurodeoxycholic acid','creatine','ADMA','aconitate','pyroglutamic acid','guanine','methionine sulfoxide','fumarate/maleate','glutamate',
+     'serine','Taurocholic acid','cholate','thymidine','C24:4 carnitine','4-hydroxybenzaldehyde','pipecolic acid','aspartate','Glycoursodeoxycholic acid',
+     '2-deoxycytidine','3-hydroxyanthranilic acid','putrescine','beta-alanine','Ursodeoxycholic acid','aminoisobutyric acid','lactate','uridine','lysine',
+     'spermidine','8.11.14-Eicosatrienoic acid','Taurohyodeoxycholic acid/Tauroursodeoxycholic acid','indolelactate','uracil','anserine','glucuronate','xanthine',
+     'taurocholate','inosine-15N4 (IS)','VMA','betaine','4-pyridoxate','alanine','valine','alpha-glycerophosphocholine','chenodeoxycholate/deoxycholate',
+     'fructose/glucose/galactose','carnitine','guanosine','creatinine','Cholic acid','GABA','glycine','glutamine','hydroxyphenylacetate','homovanillate','histidine','trimethylamine-N-oxide',
+     'beta-hydroxybutyrate','niacinamide','sorbitol','15-HETE','pyruvate','cystathionine','Linoleic acid','anthranilic acid','arginine','thymine','taurodeoxycholate/taurochenodeoxycholate',
+     'glycodeoxycholate/glycochenodeoxycholate','C10:2 carnitine','1-methylhistamine','orotate','alpha-ketoglutarate','quinolinate','pantothenate','citrulline']]
+
+    # loop para iterar en cada metabolito
+    for i, metabolito in enumerate(metabolitos): 
+        print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
+        y = mtb_df[metabolito]
+    
+        # definimos modelo RF
+        RF_model = RandomForestRegressor(random_state=42)
+    
+        # definimos el Grid Search
+        grid_search = GridSearchCV(estimator=RF_model,
+                                   param_grid=param_grid,
+                                   scoring=scoring,
+                                   cv=cv,
+                                   verbose=1,
+                                   n_jobs=-1)
+        grid_search.fit(X, y)
+        best_model = grid_search.best_estimator_
+
+        def spearman_scorer(estimator, X, y):
+            y_pred = estimator.predict(X)
+            spearman_corr, _ = spearmanr(y, y_pred)
+            return spearman_corr
+        
+        perm_importance = permutation_importance(
+            best_model, X, y, 
+            n_repeats=30, 
+            random_state=42, 
+            n_jobs=-1,
+            scoring=spearman_scorer  # Spearman como métrica
+        )
+        
+        y_pred = cross_val_predict(grid_search.best_estimator_, X, y, cv=cv, n_jobs=-1)
+        
+        # almacenamos las métricas
+        r2_scores = r2_score(y, y_pred)
+        spearman_corr, spearman_pval = spearmanr(y, y_pred)
+        mape = mean_absolute_percentage_error(y, y_pred)
+        mae = mean_absolute_error(y, y_pred)
+
+        # guardamos en un dataframe las importancias de cada feature
+        importancias = pd.DataFrame({
+            'feature': X.columns,
+            'importancia_media': perm_importance.importances_mean,
+            'importancia_std': perm_importance.importances_std
+        }).sort_values(by='importancia_media', ascending=False)
+
+        importancias['metabolito'] = metabolito 
+        resultados_importancias_lista.append(importancias)
+    
+        # creamos un df con los resultados
+        resultados.append({
+            'metabolito': metabolito, 
+            'hiperparams': grid_search.best_params_, 
+            'R2': r2_scores, 
+            'Spearman': spearman_corr,
+            'Spearman_pval': spearman_pval, 
+            'mape': mape, 
+            'mae': mae, 
+            'y': y, 
+            'y_pred': y_pred
+        })
+    
+    modelos_RF_t1d_imp_features = pd.DataFrame(resultados).sort_values(by='Spearman', ascending=False)
+    importancias_global = pd.concat(resultados_importancias_lista, axis=0)
+    modelos_RF_t1d_imp_features.to_csv('modelos_RF_t1d_importancias_features.csv')
+    importancias_global.to_csv('importancias_globales_modelosRF_t1d.csv')
+    
+    return modelos_RF_t1d_imp_features, importancias_global
+
+modelos_RF_imp(genera_2, mtb_winsor)
+
+features_df= pd.read_csv('importancias_globales_modelosRF_t1d.csv')
+modelos_rf_features_imp= pd.read_csv('modelos_RF_t1d_importancias_features.csv')
+
+top_por_metabolito = features_df.groupby('metabolito').apply(
+    lambda df: df[df['importancia_media'] >= df['importancia_media'].quantile(0.95)]
+)
+top_por_metabolito = top_por_metabolito.reset_index(drop=True)
+
+# 
+conteo_top = top_por_metabolito['feature'].value_counts() 
+
+# conservar solo los que aparecen al menos en 10 metabolitos
+features_comun = conteo_top[conteo_top >= 10].index.tolist()
+print(len(features_comun))
+
+modelos_RF(genera_2[features_comun], mtb_winsor)
