@@ -1,0 +1,348 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import ElasticNet
+from xgboost import XGBRegressor
+from sklearn.model_selection import train_test_split, validation_curve
+from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.metrics import make_scorer, mean_squared_error, r2_score, mean_absolute_percentage_error,mean_absolute_error
+from sklearn.model_selection import RandomizedSearchCV, KFold, cross_val_score, LeaveOneOut, GridSearchCV, cross_val_predict
+from scipy.stats import spearmanr
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.inspection import permutation_importance
+from scipy.stats.mstats import winsorize
+
+genera= pd.read_csv('genera_repro_RDPtax_poyetbio_metadata_listo.csv', index_col=0)
+mtb= pd.read_csv('poyetbio_mtb_filt_generaRDP.csv', index_col=0)
+
+genera= genera.drop(['No_assignado'], axis=1)
+genera= genera.div(genera.sum(axis=1),axis=0)
+
+micro=genera.sort_index()
+mtb_2=mtb.sort_index()
+
+mtb_winsor= mtb_2.copy()
+for col in mtb_winsor.columns:
+    mtb_winsor[col] = winsorize(mtb_winsor[col], limits=[0.05, 0.05])
+
+X = micro.copy() # copia para no modificar df original
+X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # eliminar caracteres especiales
+
+def modelos_ENET(micro, mtb):
+    global modelos_enet_poyetbio_final
+    
+    X = micro.copy() # copia para no modificar df original
+    X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # eliminar caracteres especiales
+
+    param_grid= {
+        'alpha': [0.001, 0.01, 0.1, 1, 10],
+        'l1_ratio': [0.1, 0.3, 0.5, 0.7, 0.9],
+        "fit_intercept": [True, False],
+        "selection": ["cyclic", "random"]
+    }
+    
+    # evaluación con CV=10
+    cv= KFold(n_splits=10, shuffle=True, random_state=42)
+    scoring='neg_mean_absolute_error'
+
+    resultados= []
+    
+    metabolitos= mtb.columns
+
+    for i, metabolito in enumerate(metabolitos): 
+        print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
+        y= mtb[metabolito]
+    
+        # definimos modelo Elastic net 
+        enet_model= ElasticNet(random_state=42)
+    
+        # definimos grid search 
+        grid_search= GridSearchCV(estimator= enet_model,
+                                  param_grid=param_grid, 
+                                  scoring=scoring, 
+                                  cv=cv, 
+                                  verbose=1, 
+                                  n_jobs=-1)
+        grid_search.fit(X,y)
+
+        y_pred = cross_val_predict(grid_search.best_estimator_, X, y, cv=cv, n_jobs=-1)
+
+        # almacenamos hiperparámetros y las r2 de cada metabolito 
+        r2_scores= r2_score(y, y_pred)
+        spearman_corr, spearman_pval= spearmanr(y, y_pred)
+        mape= mean_absolute_percentage_error(y, y_pred)
+        mae= mean_absolute_error(y, y_pred)
+        
+        # almacenamos en la lista resultados 
+        resultados.append({'metabolito':metabolito, 
+                           'hiperparams':grid_search.best_params_, 
+                           'R2_enet':r2_scores, 
+                           'Spearman':spearman_corr, 
+                           'Spearman_pval':spearman_pval, 
+                           'mae':mae, 
+                           'mape':mape, 
+                           'y': y, 
+                           'y_pred': y_pred})
+    
+    # creamos data frame con los resultados 
+    modelos_enet_poyetbio_final= pd.DataFrame(resultados)
+    modelos_enet_poyetbio_final= modelos_enet_poyetbio_final.sort_values(by='Spearman', ascending=False)
+    modelos_enet_poyetbio_final.to_csv('modelos_enet_poyetbio_final_featfiltradas.csv')
+
+    return modelos_enet_poyetbio_final
+
+modelos_ENET(micro,mtb_winsor)
+
+#### RANDOM FOREST ###
+def modelos_RF(micro, mtb):
+    global modelos_RF_poyetbio
+
+    X = micro.copy() # copia para no modificar df original
+    X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # eliminar caracteres especiales 
+    
+    # definir parámetros para el Grid Search 
+    param_grid = {
+        'n_estimators': [20, 50, 100],
+        'max_depth': [3, 5, 7],
+        'max_features': ['sqrt', 'log2', None],  
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 2, 4]
+    }
+    
+    # definimos evaluación con Leave-One-Out
+    cv= KFold(n_splits=10, shuffle=True, random_state=42)
+    scoring='neg_mean_absolute_error'
+    
+    # crear lista para almacenar resultados 
+    resultados= [] 
+    
+    # loop for para iterar por cada metabolito del df mtb 
+    metabolitos= mtb.columns
+    
+    for i, metabolito in enumerate(metabolitos):
+        print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
+        y = mtb[metabolito] 
+    
+        # definimos modelo RF 
+        RF_model= RandomForestRegressor(random_state=42)
+    
+        # definimos el Grid Search 
+        grid_search = GridSearchCV(estimator=RF_model,
+                               param_grid=param_grid,
+                               scoring=scoring,
+                               cv=cv,
+                               verbose=1,
+                               n_jobs=-1)
+        grid_search.fit(X,y)
+        
+        y_pred = cross_val_predict(grid_search.best_estimator_, X, y, cv=cv, n_jobs=-1)
+    
+        r2_scores= r2_score(y, y_pred)
+        spearman_corr, spearman_pval= spearmanr(y, y_pred)
+        mape= mean_absolute_percentage_error(y, y_pred)
+        mae= mean_absolute_error(y, y_pred)
+        
+        # almacenamos en la lista resultados 
+        resultados.append({'metabolito':metabolito, 
+                           'hiperparams':grid_search.best_params_, 
+                           'R2_enet':r2_scores, 
+                           'Spearman':spearman_corr, 
+                           'Spearman_pval':spearman_pval, 
+                           'mae':mae, 
+                           'mape':mape, 
+                           'y': y, 
+                           'y_pred': y_pred})
+        
+    modelos_RF_poyetbio= pd.DataFrame(resultados)
+    modelos_RF_poyetbio= modelos_RF_poyetbio.sort_values(by='Spearman', ascending=False)
+    #modelos_RF_poyetbio.to_csv('modelos_RF_poyetbio.csv')
+    
+    return modelos_RF_poyetbio
+modelos_RF(micro, mtb_winsor)
+
+###############
+### XGBoost ###
+###############
+
+def modelos_XGB(micro, mtb):
+    global modelos_XGB_poyetbio_final
+    
+    X = micro.copy() # copia para no modificar df original
+    X.columns= X.columns.str.replace(r"[\[\]<>]", "", regex=True) # eliminar caracteres especiales
+
+    param_grid = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [3, 5, 7],
+    'learning_rate': [0.01, 0.1, 0.3],
+    'colsample_bytree': [0.8, 1],
+    'min_child_weight': [1, 5, 10]
+}
+    
+    # evaluación con CV=5
+    cv= KFold(n_splits=5, shuffle=True, random_state=42)
+    scoring='neg_mean_absolute_error'
+
+    resultados= []
+    
+    metabolitos= mtb.columns
+
+    for i, metabolito in enumerate(metabolitos): 
+        print(f"Procesando {i+1} / {len(metabolitos)}: {metabolito}")
+        y= mtb[metabolito]
+    
+        #definimos el modelo xgb que se generará en cada iteración
+        xgb= XGBRegressor(objective='reg:absoluteerror', random_state=42)
+        
+        # definimos grid search 
+        grid_search= GridSearchCV(estimator= xgb,
+                                  param_grid=param_grid, 
+                                  scoring=scoring, 
+                                  cv=cv, 
+                                  verbose=1, 
+                                  n_jobs=-1)
+        grid_search.fit(X,y)
+
+        y_pred = cross_val_predict(grid_search.best_estimator_, X, y, cv=cv, n_jobs=-1)
+
+        # almacenamos hiperparámetros y las r2 de cada metabolito 
+        r2_scores= r2_score(y, y_pred)
+        spearman_corr, spearman_pval= spearmanr(y, y_pred)
+        mape= mean_absolute_percentage_error(y, y_pred)
+        mae= mean_absolute_error(y, y_pred)
+        
+        # almacenamos en la lista resultados 
+        resultados.append({'metabolito':metabolito, 
+                           'hiperparams':grid_search.best_params_, 
+                           'R2_enet':r2_scores, 
+                           'Spearman':spearman_corr, 
+                           'Spearman_pval':spearman_pval, 
+                           'mae':mae, 
+                           'mape':mape, 
+                           'y': y, 
+                           'y_pred': y_pred})
+    
+    # creamos data frame con los resultados 
+    modelos_XGB_poyetbio_final= pd.DataFrame(resultados)
+    modelos_XGB_poyetbio_final= modelos_XGB_poyetbio_final.sort_values(by='Spearman', ascending=False)
+    #modelos_enet_poyetbio_final.to_csv('modelos_XGB_poyetbio_final_featfiltradas.csv')
+
+    return modelos_XGB_poyetbio_final
+modelos_XGB(micro, mtb_2)
+
+#####################
+### SCATTER PLOTS ###
+#####################
+
+modelos_RF(genera_poyet_sinfiltrar, mtb_winsor_poyet[['lithocholate']])
+
+fila = modelos_RF_poyetbio_litho.iloc[0]
+
+y_original = fila['y'].values
+y_pred = np.array(fila['y_pred'])
+
+plt.figure(figsize=(6,6))
+plt.scatter(y_original, y_pred,
+           s=200,
+           alpha= 0.5,
+           c='green',
+            edgecolor= 'black') #tamaño de puntos)
+
+plt.xlabel('Valor real (log10)', fontsize=12)
+plt.ylabel('Valor predicho (log10)', fontsize=12)
+
+plt.plot(
+    [y_original.min(), y_original.max()],
+    [y_original.min(), y_original.max()],
+    color='red',
+    linewidth=1
+    
+)
+
+plt.text(
+    0.05, 0.95, 
+    f"Spearman = 0.43\nMAE = 0.19 (~1.5x)",
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top',
+alpha=0.8
+)
+
+plt.grid(True, linestyle= '--', alpha=0.5)
+plt.title('Ácido litocólico (LCA)', fontsize=14)
+plt.savefig('litocolico_poyet_scatterplot_esp.png', dpi=300)
+plt.show()
+
+modelos_RF(genera_poyet_sinfiltrar, mtb_winsor_poyet[['chenodeoxycholate/deoxycholate']])
+fila = modelos_RF_poyetbio_deoxy.iloc[0]
+
+y_original = fila['y'].values
+y_pred = np.array(fila['y_pred'])
+
+plt.figure(figsize=(6,6))
+plt.scatter(y_original, y_pred,
+           s=200,
+           alpha= 0.7,
+           c='blue',
+            edgecolor= 'black') #tamaño de puntos
+
+plt.xlabel('Valor real (log10)', fontsize=12)
+plt.ylabel('Valor predicho (log10)', fontsize=12)
+
+plt.plot(
+    [y_original.min(), y_original.max()],
+    [y_original.min(), y_original.max()],
+    linewidth=1,
+    color='red',
+)
+
+plt.grid(True, linestyle= '--', alpha=0.5)
+
+plt.text(
+    0.05, 0.95, 
+    f"Spearman = 0.53\nMAE = 0.28 (~2.0x)",
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top'
+)
+
+plt.title('Ácido desoxicólico (DCA)', fontsize=14)
+plt.savefig('desoxicolico_poyet_scatterplot_esp.png', dpi=300)
+plt.show()
+
+modelos_RF(genera_poyet_filtrado, mtb_winsor_poyet[['hyodeoxycholate/ursodeoxycholate']])
+fila = modelos_RF_poyetbio_urso.iloc[0]
+
+y_original = fila['y'].values
+y_pred = np.array(fila['y_pred'])
+
+plt.figure(figsize=(6,6))
+plt.scatter(y_original, y_pred,
+           s=200,
+           alpha= 0.6,
+           c='purple',
+            edgecolor= 'black') #tamaño de puntos
+
+plt.xlabel('Valor real (log10)', fontsize=12)
+plt.ylabel('Valor predicho (log10)', fontsize=12)
+
+plt.plot(
+    [y_original.min(), y_original.max()],
+    [y_original.min(), y_original.max()],
+    linewidth=1,
+    color='red',
+)
+
+plt.grid(True, linestyle= '--', alpha=0.5)
+
+plt.text(
+    0.05, 0.95, 
+    f"Spearman = 0.47\nMAE = 0.26 (~1.8x)",
+    transform=plt.gca().transAxes,
+    fontsize=12,
+    verticalalignment='top'
+)
+
+plt.title('Ácido ursodesoxicólico (UDCA)', fontsize=14)
+plt.savefig('ursodesoxicolico_poyet_scatterplot_esp.png', dpi=300)
+plt.show()
